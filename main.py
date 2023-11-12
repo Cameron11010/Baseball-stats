@@ -1,18 +1,18 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from collections import Counter
+
+import openpyxl
 from openpyxl import load_workbook
 
 workbook = load_workbook(filename="stats.xlsx")
 
-#print(workbook.sheetnames)
-
 sheets = workbook['Train']
 
-new_point = [76.2, 2495, 14.20, -56.60, 17.10, 2.4]
+new_point = [83.4, 2310, -3.5, -32.90, 7.80, 1.5]
 
-headings = [sheets.cell(row=1, column=i).value for i in range(1, sheets.max_column+1)]
-#print(headings)
+headings = [sheets.cell(row=1, column=i).value for i in range(1, sheets.max_column + 1)]
+# print(headings)
 
 pitch_ranges = {
     "fseam": ([7, 12]),
@@ -24,11 +24,9 @@ pitch_ranges = {
     "splitter": (49, 54),
     "knuckle": (56, 61),
     "tseam": (63, 68),
-    "breaking": (70, 75),
-    "offspeed": (77, 82)}
+    }
 
 results = {}
-
 
 for pitch, pitch_range in pitch_ranges.items():
     results[pitch] = []
@@ -41,8 +39,6 @@ for pitch, pitch_range in pitch_ranges.items():
         if row_data:  # Only append non-empty rows
             results[pitch].append(row_data)
 
-
-
 fseam = results["fseam"]
 slider = results["slider"]
 changeup = results["changeup"]
@@ -52,8 +48,7 @@ cutter = results["cutter"]
 splitter = results["splitter"]
 knuckle = results["knuckle"]
 tseam = results["tseam"]
-breaking = results["breaking"]
-offspeed = results["offspeed"]
+
 
 points = {'4-seam fastball': fseam,
           'slider': slider,
@@ -64,8 +59,7 @@ points = {'4-seam fastball': fseam,
           'splitter': splitter,
           'knuckle': knuckle,
           '2-seam fastball': tseam,
-          'breaking': breaking,
-          'offspeed': offspeed}
+          }
 
 print(new_point)
 
@@ -78,7 +72,7 @@ def euclidean_distance(p, q):
 
 
 class KNearestNeighbors:
-    def __init__(self, k=6):
+    def __init__(self, k=5):
         self.k = k
         self.points = None
 
@@ -87,20 +81,65 @@ class KNearestNeighbors:
 
     def predict(self, new_point):
         distances = []
-
+        k = self.k
         for category, point_list in self.points.items():
             for point in point_list:
                 try:
                     distance = euclidean_distance(point, new_point)
-                    distances.append([distance, category])
+                    distances.append([distance, category, point])
                 except ValueError as e:
                     print(f"Error: {e}")
                     print(f"Category: {category}")
                     print(f"Point: {point}")
                     print(f"New Point: {new_point}")
-
         categories = [category[1] for category in sorted(distances)[:self.k]]
         result = Counter(categories).most_common(1)[0][0]
+
+        distances.sort()
+        nearest_neighbors = [neighbor for _, category, neighbor in distances[:k]]
+        print("Distances: ", nearest_neighbors)
+        # VISUALISATION
+        ax = plt.figure().add_subplot(111, projection='3d')
+        ax.grid(True, color="#323232")
+        ax.set_facecolor("black")
+        ax.figure.set_facecolor("#121212")
+        ax.tick_params(axis="x", colors="white")
+        ax.tick_params(axis="y", colors="white")
+        ax.tick_params(axis="z", colors="white")
+
+        color_map = {
+            '4-seam fastball': '#e41a1c',
+            'slider': '#377eb8',
+            'changeup': '#4daf4a',
+            'curve': '#984ea3',
+            'sinker': '#ff7f00',
+            'cutter': '#ffff33',
+            'splitter': '#a65628',
+            'knuckle': '#f781bf',
+            '2-seam fastball': '#999999'
+            }
+
+        ax.scatter(new_point[0], new_point[1], new_point[4], color=color_map.get(result), marker="*", s=500,
+                   zorder=150)
+
+        for neighbor in nearest_neighbors:
+            ax.scatter(neighbor[0], neighbor[1], neighbor[4], color=color_map.get(neighbor[1]), marker="o", s=100,
+                       zorder=100)
+
+            ax.plot([new_point[0], neighbor[0]], [new_point[1], neighbor[1]], zs=[new_point[4], neighbor[4]],
+                    color='red', linestyle="--", linewidth=1)
+
+        ax.set_xlabel('Velocity', color='white')
+        ax.set_ylabel('Spinrate', color='white')
+        ax.set_zlabel('Break', color='white')
+        plt.title('KNN Nearest Neighbors Classification Results', color='white')
+        for category, color in color_map.items():
+            ax.scatter([], [], [], c=color, label=category)
+
+        ax.legend(fontsize=5, title='Categories', loc='upper right')
+
+        plt.show()
+
         return result
 
 
