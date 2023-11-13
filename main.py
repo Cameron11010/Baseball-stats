@@ -135,7 +135,7 @@ class KNearestNeighbours:
         ax.set_xlabel('Velocity', color='white')
         ax.set_ylabel('Spinrate', color='white')
         ax.set_zlabel('Break', color='white')
-        plt.title('KNN Nearest Neighbours Classification Results', color='white')
+        plt.title('KNN Nearest Neighbours Pitch Type Results', color='white')
         for category, color in color_map.items():
             ax.scatter([], [], [], c=color, label=category)
 
