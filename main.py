@@ -5,7 +5,7 @@ from collections import Counter
 import openpyxl
 from openpyxl import load_workbook
 
-workbook = load_workbook(filename="stats-trial.xlsx")
+workbook = load_workbook(filename="stats.xlsx")
 
 sheets = workbook['Train']
 
@@ -14,7 +14,6 @@ trial = workbook['Trial']
 headings = [sheets.cell(row=1, column=i).value for i in range(1, sheets.max_column + 1)]
 
 new_point = [trial.cell(row=2, column=i).value for i in range(7, 13)]
-
 
 pitch_ranges = {
     "fseam": ([7, 12]),
@@ -63,16 +62,16 @@ points = {'4-seam fastball': fseam,
           }
 
 color_map = {
-            '4-seam fastball': '#de2a33',
-            'sinker': '#ffff33',
-            'cutter': '#e8208e',
-            '2-seam fastball': '#ffad00',
-            'splitter': '#f3ffe3',
-            'changeup': '#008080',
-            'slider': '#86d8f7',
-            'curve': '#b19cd9',
-            'knuckle': '#98FF98'
-        }
+    '4-seam fastball': '#de2a33',
+    'sinker': '#ffff33',
+    'cutter': '#e8208e',
+    '2-seam fastball': '#ffad00',
+    'splitter': '#f3ffe3',
+    'changeup': '#008080',
+    'slider': '#86d8f7',
+    'curve': '#b19cd9',
+    'knuckle': '#98FF98'
+}
 
 
 def euclidean_distance(p, q):
@@ -110,7 +109,7 @@ class KNearestNeighbours:
         for distance, category, neighbour in distances[:k]:
             print(f"Distance: {distance}, Category: {category}, Point: {neighbour}")
             nearest_neighbours = [neighbour for _, category, neighbour in distances[:k]]
-            
+
         # VISUALISATION
         ax = plt.figure().add_subplot(111, projection='3d')
         ax.grid(True, color="#323232")
@@ -119,8 +118,6 @@ class KNearestNeighbours:
         ax.tick_params(axis="x", colors="white")
         ax.tick_params(axis="y", colors="white")
         ax.tick_params(axis="z", colors="white")
-
-        
 
         ax.scatter(new_point[0], new_point[1], new_point[4], color=color_map.get(result), marker="*", s=500,
                    zorder=150)
@@ -141,11 +138,9 @@ class KNearestNeighbours:
 
         ax.legend(fontsize=5, title='Categories', loc='upper right')
 
-
         return result
 
-    
-    
+
 ranges = [(7, 12), (14, 19), (21, 26), (28, 33), (35, 40), (42, 47), (49, 54), (56, 61), (63, 68)]
 unknown_pitch = []
 
@@ -156,8 +151,8 @@ for start, end in ranges:
             cell_value = trial.cell(row=j, column=i).value
             if cell_value is not None or cell_value == 0:
                 column_values.append(cell_value)
-        if column_values:
-            unknown_pitch.extend(column_values)
+    if column_values:
+        unknown_pitch.extend(column_values)
 
 clf = KNearestNeighbours()
 clf.fit(points)
@@ -168,17 +163,13 @@ correct_predictions = 0
 # Separate new_point into variables for each set of 6 features
 num_variables = len(unknown_pitch) // 6
 for i in range(num_variables):
-    globals()[f'unknown_pitch {i+1}'] = unknown_pitch[i*6: (i+1)*6]
+    globals()[f'unknown_pitch {i + 1}'] = unknown_pitch[i * 6: (i + 1) * 6]
 # Print the variables
 for i in range(num_variables):
-    print(f'unknown_pitch {i+1}: {globals()[f"unknown_pitch {i+1}"]}')
-    guess_pitch = unknown_pitch[i*6: (i+1)*6]
+    print(f'unknown_pitch {i + 1}: {globals()[f"unknown_pitch {i + 1}"]}')
+    guess_pitch = unknown_pitch[i * 6: (i + 1) * 6]
     prediction = clf.predict(guess_pitch)
     print("Category prediction:", prediction)
     plt.show()
-    
-
-
-
 
 
