@@ -5,14 +5,16 @@ from collections import Counter
 import openpyxl
 from openpyxl import load_workbook
 
-workbook = load_workbook(filename="stats.xlsx")
+workbook = load_workbook(filename="stats-trial.xlsx")
 
 sheets = workbook['Train']
 
-new_point = [83.4, 2310, -3.5, -32.90, 7.80, 1.5]
+trial = workbook['Trial']
 
 headings = [sheets.cell(row=1, column=i).value for i in range(1, sheets.max_column + 1)]
-# print(headings)
+
+new_point = [trial.cell(row=2, column=i).value for i in range(7, 13)]
+
 
 pitch_ranges = {
     "fseam": ([7, 12]),
@@ -50,29 +52,27 @@ knuckle = results["knuckle"]
 tseam = results["tseam"]
 
 points = {'4-seam fastball': fseam,
-          'slider': slider,
-          'changeup': changeup,
-          'curve': curve,
           'sinker': sinker,
           'cutter': cutter,
-          'splitter': splitter,
-          'knuckle': knuckle,
           '2-seam fastball': tseam,
+          'splitter': splitter,
+          'changeup': changeup,
+          'slider': slider,
+          'curve': curve,
+          'knuckle': knuckle,
           }
 
 color_map = {
-            '4-seam fastball': '#e41a1c',
-            'slider': '#377eb8',
-            'changeup': '#4daf4a',
-            'curve': '#984ea3',
-            'sinker': '#ff7f00',
-            'cutter': '#ffff33',
-            'splitter': '#a65628',
-            'knuckle': '#f781bf',
-            '2-seam fastball': '#999999'
+            '4-seam fastball': '#de2a33',
+            'sinker': '#ffff33',
+            'cutter': '#e8208e',
+            '2-seam fastball': '#ffad00',
+            'splitter': '#f3ffe3',
+            'changeup': '#008080',
+            'slider': '#86d8f7',
+            'curve': '#b19cd9',
+            'knuckle': '#98FF98'
         }
-
-print(new_point)
 
 
 def euclidean_distance(p, q):
@@ -83,7 +83,7 @@ def euclidean_distance(p, q):
 
 
 class KNearestNeighbours:
-    def __init__(self, k=10):
+    def __init__(self, k=15):
         self.k = k
         self.points = None
 
@@ -144,9 +144,41 @@ class KNearestNeighbours:
 
         return result
 
+    
+    
+ranges = [(7, 12), (14, 19), (21, 26), (28, 33), (35, 40), (42, 47), (49, 54), (56, 61), (63, 68)]
+unknown_pitch = []
+
+for start, end in ranges:
+    column_values = []
+    for j in range(2, trial.max_row + 1):
+        for i in range(start, end + 1):
+            cell_value = trial.cell(row=j, column=i).value
+            if cell_value is not None or cell_value == 0:
+                column_values.append(cell_value)
+        if column_values:
+            unknown_pitch.extend(column_values)
 
 clf = KNearestNeighbours()
 clf.fit(points)
-prediction = clf.predict(new_point)
-print("Category preditcion:", prediction)
-plt.show()
+
+total_predictions = 0
+correct_predictions = 0
+
+# Separate new_point into variables for each set of 6 features
+num_variables = len(unknown_pitch) // 6
+for i in range(num_variables):
+    globals()[f'unknown_pitch {i+1}'] = unknown_pitch[i*6: (i+1)*6]
+# Print the variables
+for i in range(num_variables):
+    print(f'unknown_pitch {i+1}: {globals()[f"unknown_pitch {i+1}"]}')
+    guess_pitch = unknown_pitch[i*6: (i+1)*6]
+    prediction = clf.predict(guess_pitch)
+    print("Category prediction:", prediction)
+    plt.show()
+    
+
+
+
+
+
