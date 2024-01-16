@@ -5,15 +5,13 @@ from collections import Counter
 import openpyxl
 from openpyxl import load_workbook
 
-workbook = load_workbook(filename="stats-trial.xlsx")
+workbook = load_workbook(filename="stats.xlsx")
 
 sheets = workbook['Train']
 
 trial = workbook['Trial']
 
 headings = [sheets.cell(row=1, column=i).value for i in range(1, sheets.max_column + 1)]
-
-new_point = [trial.cell(row=2, column=i).value for i in range(7, 13)]
 
 
 pitch_ranges = {
@@ -63,16 +61,16 @@ points = {'4-seam fastball': fseam,
           }
 
 color_map = {
-            '4-seam fastball': '#de2a33',
-            'sinker': '#ffff33',
-            'cutter': '#e8208e',
-            '2-seam fastball': '#ffad00',
-            'splitter': '#f3ffe3',
-            'changeup': '#008080',
-            'slider': '#86d8f7',
-            'curve': '#b19cd9',
-            'knuckle': '#98FF98'
-        }
+    '4-seam fastball': '#de2a33',
+    'sinker': '#ffff33',
+    'cutter': '#e8208e',
+    '2-seam fastball': '#ffad00',
+    'splitter': '#f3ffe3',
+    'changeup': '#008080',
+    'slider': '#86d8f7',
+    'curve': '#b19cd9',
+    'knuckle': '#98FF98'
+}
 
 
 def euclidean_distance(p, q):
@@ -110,7 +108,7 @@ class KNearestNeighbours:
         for distance, category, neighbour in distances[:k]:
             print(f"Distance: {distance}, Category: {category}, Point: {neighbour}")
             nearest_neighbours = [neighbour for _, category, neighbour in distances[:k]]
-            
+
         # VISUALISATION
         ax = plt.figure().add_subplot(111, projection='3d')
         ax.grid(True, color="#323232")
@@ -119,8 +117,6 @@ class KNearestNeighbours:
         ax.tick_params(axis="x", colors="white")
         ax.tick_params(axis="y", colors="white")
         ax.tick_params(axis="z", colors="white")
-
-        
 
         ax.scatter(new_point[0], new_point[1], new_point[4], color=color_map.get(result), marker="*", s=500,
                    zorder=150)
@@ -141,14 +137,12 @@ class KNearestNeighbours:
 
         ax.legend(fontsize=5, title='Categories', loc='upper right')
 
-
         return result
 
-    
-    
+
 ranges = [(7, 12), (14, 19), (21, 26), (28, 33), (35, 40), (42, 47), (49, 54), (56, 61), (63, 68)]
 unknown_pitch = []
-    
+
 for start, end in ranges:
     for j in range(2, trial.max_row + 1):
         column_values = []  # Reset column_values for each row
@@ -159,7 +153,7 @@ for start, end in ranges:
                     column_values.append(cell_value)
         if column_values:
             unknown_pitch.extend(column_values)
-            
+
 
 clf = KNearestNeighbours()
 clf.fit(points)
@@ -167,50 +161,13 @@ clf.fit(points)
 total_predictions = 0
 correct_predictions = 0
 
-
 num_variables = len(unknown_pitch) // 6
 for i in range(num_variables):
-    globals()[f'unknown_pitch {i+1}'] = unknown_pitch[i*6: (i+1)*6]
+    globals()[f'unknown_pitch {i + 1}'] = unknown_pitch[i * 6: (i + 1) * 6]
 for i in range(num_variables):
-    print(f'unknown_pitch {i+1}: {globals()[f"unknown_pitch {i+1}"]}')
-    guess_pitch = unknown_pitch[i*6: (i+1)*6]
+    print(f'unknown_pitch {i + 1}: {globals()[f"unknown_pitch {i + 1}"]}')
+    guess_pitch = unknown_pitch[i * 6: (i + 1) * 6]
+    print("Look here idiot: ", ranges[i])
     prediction = clf.predict(guess_pitch)
     print("Category prediction:", prediction)
     plt.show()
-
-"""
-    
-    col = i+1
-    if col > 6:
-        col = 0
-        
-    print(col)
-    total_predictions += 1
-    if col == (7, 12) and prediction == "4-seam fastball":
-        correct_predictions += 1
-    elif col == (14, 19) and prediction == "slider":
-        correct_predictions += 1
-    elif col == (21, 26) and prediction == "changeup":
-        correct_predictions += 1
-    elif col == (28, 33) and prediction =="curve":
-        correct_predictions +=1
-    elif col == (35, 40) and prediction == "sinker":
-        correct_predictions += 1
-    elif col == (42, 47) and prediction == "cutter":
-        correct_predictions += 1
-    elif col == (49, 54) and prediction == "splitter":
-        correct_predictions += 1
-    elif col == (56, 61) and prediction == "knuckle":
-        correct_predictions += 1
-    elif col == (63, 68) and prediction == "tseam":
-        correct_predictions += 1
-    else:
-        print("incorrect")
-    col += 1
-    
-
-print("Correct predictions: ", correct_predictions)
-print("Total predictions: ", total_predictions)
-
-"""
-
