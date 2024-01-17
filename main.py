@@ -5,17 +5,18 @@ from collections import Counter
 import openpyxl
 from openpyxl import load_workbook
 
-workbook = load_workbook(filename="stats.xlsx")
+workbook = load_workbook(filename="//Users/cam/Documents/Python-projects/stats-trial.xlsx")
 
 sheets = workbook['Train']
 
-trial = workbook['Trial']
+trial = workbook['Test']
 
 headings = [sheets.cell(row=1, column=i).value for i in range(1, sheets.max_column + 1)]
 
+trial_headings = [sheets.cell(row=1, column=i).value for i in range(7, sheets.max_column + 1)]
 
 pitch_ranges = {
-    "fseam": (7, 12),
+    "fseam": ([7, 12]),
     "slider": (14, 19),
     "changeup": (21, 26),
     "curve": (28, 33),
@@ -109,6 +110,8 @@ class KNearestNeighbours:
             print(f"Distance: {distance}, Category: {category}, Point: {neighbour}")
             nearest_neighbours = [neighbour for _, category, neighbour in distances[:k]]
 
+
+
         # VISUALISATION
         ax = plt.figure().add_subplot(111, projection='3d')
         ax.grid(True, color="#323232")
@@ -140,6 +143,29 @@ class KNearestNeighbours:
         return result
 
 
+def pitch_classification(column_numbers):
+    if column_numbers == [7, 8, 9, 10, 11, 12]:
+        return "4-seam fastball"
+    elif column_numbers == [14, 15, 16, 17, 18, 19]:
+        return "slider"
+    if column_numbers == [21, 22, 23, 24, 25, 26]:
+        return "changeup"
+    if column_numbers == [28, 29, 30, 31, 32, 33]:
+        return "curve"
+    if column_numbers == [35, 36, 37, 38, 39, 40]:
+        return "sinker"
+    if column_numbers == [42, 43, 44, 45, 46, 47]:
+        return "cutter"
+    if column_numbers == [49, 50, 51, 52, 53, 54]:
+        return "splitter"
+    if column_numbers == [56, 57, 58, 59, 60, 61]:
+        return "knuckle"
+    if column_numbers == [63, 64, 65, 66, 67, 68]:
+        return "2-seam fastball"
+    else:
+        return "Unknown pitch type"
+
+
 ranges = [(7, 12), (14, 19), (21, 26), (28, 33), (35, 40), (42, 47), (49, 54), (56, 61), (63, 68)]
 unknown_pitch = []
 
@@ -150,10 +176,9 @@ for start, end in ranges:
             for i in range(start, end + 1):
                 cell_value = trial.cell(row=j, column=i).value
                 if cell_value is not None or cell_value == 0:
-                    column_values.append(cell_value)
+                    column_values.append((cell_value, i))
         if column_values:
             unknown_pitch.extend(column_values)
-
 
 clf = KNearestNeighbours()
 clf.fit(points)
@@ -161,13 +186,37 @@ clf.fit(points)
 total_predictions = 0
 correct_predictions = 0
 
-num_variables = len(unknown_pitch) // 6
+# Separate each new unknown pitch into variables for each set of 6 features
+num_variables = len(unknown_pitch) // (6 * len(ranges))
+print("unknown P len ", (len(unknown_pitch) / 6), "\nranges len:", len(ranges), "\nnum variable", num_variables)
+
 for i in range(num_variables):
     globals()[f'unknown_pitch {i + 1}'] = unknown_pitch[i * 6: (i + 1) * 6]
+# Print the variables
 for i in range(num_variables):
     print(f'unknown_pitch {i + 1}: {globals()[f"unknown_pitch {i + 1}"]}')
-    guess_pitch = unknown_pitch[i * 6: (i + 1) * 6]
-    print("Look here idiot: ", ranges[i])
+    guess_pitch = [tup[0] for tup in globals()[f"unknown_pitch {i + 1}"]]
+    guess_pitch_types = [trial_headings[tup[1] - 7] for tup in globals()[f"unknown_pitch {i + 1}"]]
+    guess_pitch_column_numbers = [tup[1] for tup in globals()[f"unknown_pitch {i + 1}"]]
+
+    correct_pitch = pitch_classification(guess_pitch_column_numbers)
     prediction = clf.predict(guess_pitch)
+
     print("Category prediction:", prediction)
-    plt.show()
+    print("Correct pitch:", correct_pitch)
+
+    if prediction == correct_pitch:
+        correct_predictions += 1
+    else:
+        correct_predictions = correct_predictions
+
+    total_predictions += 1
+
+    print("Correct count: ", correct_predictions)
+    print("Total count: ", total_predictions)
+
+    # plt.show()
+
+accuracy = (correct_predictions / total_predictions) * 100
+
+print("Accuracy = ", accuracy)
