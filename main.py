@@ -220,3 +220,11 @@ for i in range(num_variables):
 accuracy = (correct_predictions / total_predictions) * 100
 
 print("Accuracy = ", accuracy)
+
+"""
+Questions for Neil:
+how to best normalise this data
+bagging - is the data preprocessing included
+there are 797 different pitches... when it comes to these graphs what would be the best way 
+to attempt to visualise this data
+"""
