@@ -1,19 +1,20 @@
 import numpy as np
+import glob
 import matplotlib.pyplot as plt
 from collections import Counter
 
-import openpyxl
 from openpyxl import load_workbook
 
-workbook = load_workbook(filename="//Users/cam/Documents/Python-projects/stats-trial.xlsx")
+dataset = load_workbook(filename="//Users/cam/Documents/Python-projects/stats-trial.xlsx")
 
-sheets = workbook['Train']
 
-trial = workbook['Test']
+train = dataset['Train']
 
-headings = [sheets.cell(row=1, column=i).value for i in range(1, sheets.max_column + 1)]
+test = dataset['Test']
 
-trial_headings = [sheets.cell(row=1, column=i).value for i in range(7, sheets.max_column + 1)]
+headings = [train.cell(row=1, column=i).value for i in range(1, train.max_column + 1)]
+
+test_headings = [test.cell(row=1, column=i).value for i in range(1, test.max_column + 1)]
 
 pitch_ranges = {
     "fseam": ([7, 12]),
@@ -31,14 +32,15 @@ results = {}
 
 for pitch, pitch_range in pitch_ranges.items():
     results[pitch] = []
-    for i in range(2, sheets.max_row + 1):
+    for i in range(2, train.max_row + 1):
         row_data = []
         for j in range(pitch_range[0], pitch_range[1] + 1):
-            cell_value = sheets.cell(row=i, column=j).value
+            cell_value = train.cell(row=i, column=j).value
             if cell_value is not None or cell_value == 0:
                 row_data.append(cell_value)
         if row_data:  # Only append non-empty rows
             results[pitch].append(row_data)
+
 
 fseam = results["fseam"]
 slider = results["slider"]
@@ -61,6 +63,7 @@ points = {'4-seam fastball': fseam,
           'knuckle': knuckle,
           }
 
+
 color_map = {
     '4-seam fastball': '#de2a33',
     'sinker': '#ffff33',
@@ -74,6 +77,7 @@ color_map = {
 }
 
 
+#Calculating the nearest neighbour as long as there data has 6 features
 def euclidean_distance(p, q):
     if len(p) != len(q):
         raise ValueError("Both points must have the same number of features. P length:", len(p), "Q length: ", len(q))
@@ -89,7 +93,7 @@ class KNearestNeighbours:
     def fit(self, points):
         self.points = points
 
-    def predict(self, new_point):
+    def predict(self, new_point, unknown_pitch_number):
         distances = []
         k = self.k
         for category, point_list in self.points.items():
@@ -109,8 +113,6 @@ class KNearestNeighbours:
         for distance, category, neighbour in distances[:k]:
             print(f"Distance: {distance}, Category: {category}, Point: {neighbour}")
             nearest_neighbours = [neighbour for _, category, neighbour in distances[:k]]
-
-
 
         # VISUALISATION
         ax = plt.figure().add_subplot(111, projection='3d')
@@ -134,7 +136,7 @@ class KNearestNeighbours:
         ax.set_xlabel('Velocity', color='white')
         ax.set_ylabel('Spinrate', color='white')
         ax.set_zlabel('Break', color='white')
-        plt.title('KNN Nearest Neighbours Pitch Type Results', color='white')
+        plt.title(('KNN Nearest Neighbours Pitch Type Results', f"Unknown Pitch {unknown_pitch_number}"), color='white')
         for category, color in color_map.items():
             ax.scatter([], [], [], c=color, label=category)
 
@@ -143,7 +145,12 @@ class KNearestNeighbours:
         return result
 
 
+
+
+
 def pitch_classification(column_numbers):
+
+
     if column_numbers == [7, 8, 9, 10, 11, 12]:
         return "4-seam fastball"
     elif column_numbers == [14, 15, 16, 17, 18, 19]:
@@ -170,11 +177,11 @@ ranges = [(7, 12), (14, 19), (21, 26), (28, 33), (35, 40), (42, 47), (49, 54), (
 unknown_pitch = []
 
 for start, end in ranges:
-    for j in range(2, trial.max_row + 1):
+    for j in range(2, test.max_row + 1):
         column_values = []  # Reset column_values for each row
         for start, end in ranges:
             for i in range(start, end + 1):
-                cell_value = trial.cell(row=j, column=i).value
+                cell_value = test.cell(row=j, column=i).value
                 if cell_value is not None or cell_value == 0:
                     column_values.append((cell_value, i))
         if column_values:
@@ -192,39 +199,190 @@ print("unknown P len ", (len(unknown_pitch) / 6), "\nranges len:", len(ranges), 
 
 for i in range(num_variables):
     globals()[f'unknown_pitch {i + 1}'] = unknown_pitch[i * 6: (i + 1) * 6]
+
+true_pos_fourseam = 0
+true_neg_fourseam = 0
+false_pos_fourseam = 0
+false_neg_fourseam = 0
+
+true_pos_slider = 0
+true_neg_slider = 0
+false_pos_slider = 0
+false_neg_slider = 0
+
+true_pos_changeup = 0
+true_neg_changeup = 0
+false_pos_changeup = 0
+false_neg_changeup = 0
+
+true_pos_curve = 0
+true_neg_curve = 0
+false_pos_curve = 0
+false_neg_curve = 0
+
+true_pos_sinker = 0
+true_neg_sinker = 0
+false_pos_sinker = 0
+false_neg_sinker = 0
+
+true_pos_cutter = 0
+true_neg_cutter = 0
+false_pos_cutter = 0
+false_neg_cutter = 0
+
+true_pos_splitter = 0
+true_neg_splitter = 0
+false_pos_splitter = 0
+false_neg_splitter = 0
+
+true_pos_knuckle = 0
+true_neg_knuckle = 0
+false_pos_knuckle = 0
+false_neg_knuckle = 0
+
+true_pos_twoseam = 0
+true_neg_twoseam = 0
+false_pos_twoseam = 0
+false_neg_twoseam = 0
+
 # Print the variables
 for i in range(num_variables):
     print(f'unknown_pitch {i + 1}: {globals()[f"unknown_pitch {i + 1}"]}')
     guess_pitch = [tup[0] for tup in globals()[f"unknown_pitch {i + 1}"]]
-    guess_pitch_types = [trial_headings[tup[1] - 7] for tup in globals()[f"unknown_pitch {i + 1}"]]
+    guess_pitch_types = [test_headings[tup[1] - 7] for tup in globals()[f"unknown_pitch {i + 1}"]]
     guess_pitch_column_numbers = [tup[1] for tup in globals()[f"unknown_pitch {i + 1}"]]
 
     correct_pitch = pitch_classification(guess_pitch_column_numbers)
-    prediction = clf.predict(guess_pitch)
+    prediction = clf.predict(guess_pitch, i + 1)
 
     print("Category prediction:", prediction)
     print("Correct pitch:", correct_pitch)
+
+    if prediction == "4-seam fastball" and correct_pitch == "4-seam fastball":
+        true_pos_fourseam += 1
+    if prediction == "4-seam fastball" and correct_pitch != "4-seam fastball":
+        false_pos_fourseam += 1
+    if prediction != "4-seam fastball" and correct_pitch == "4-seam fastball":
+        false_neg_fourseam += 1
+    if prediction != "4-seam fastball" and correct_pitch != "4-seam fastball":
+        true_neg_fourseam += 1
+
+    if prediction == "slider" and correct_pitch == "slider":
+        true_pos_slider += 1
+    if prediction == "slider" and correct_pitch != "slider":
+        false_pos_slider += 1
+    if prediction != "slider" and correct_pitch == "slider":
+        false_neg_slider += 1
+    if prediction != "slider" and correct_pitch != "slider":
+        true_neg_slider += 1
+
+    if prediction == "changeup" and correct_pitch == "changeup":
+        true_pos_changeup += 1
+    if prediction == "changeup" and correct_pitch != "changeup":
+        false_pos_changeup += 1
+    if prediction != "changeup" and correct_pitch == "changeup":
+        false_neg_changeup += 1
+    if prediction != "changeup" and correct_pitch != "changeup":
+        true_neg_changeup += 1
+
+    if prediction == "curve" and correct_pitch == "curve":
+        true_pos_curve += 1
+    if prediction == "curve" and correct_pitch != "curve":
+        false_pos_curve += 1
+    if prediction != "curve" and correct_pitch == "curve":
+        false_neg_curve += 1
+    if prediction != "curve" and correct_pitch != "curve":
+        true_neg_curve += 1
+
+    if prediction == "sinker" and correct_pitch == "sinker":
+        true_pos_sinker += 1
+    if prediction == "sinker" and correct_pitch != "sinker":
+        false_pos_sinker += 1
+    if prediction != "sinker" and correct_pitch == "sinker":
+        false_neg_sinker += 1
+    if prediction != "sinker" and correct_pitch != "sinker":
+        true_neg_sinker += 1
+
+    if prediction == "cutter" and correct_pitch == "cutter":
+        true_pos_cutter += 1
+    if prediction == "cutter" and correct_pitch != "cutter":
+        false_pos_cutter += 1
+    if prediction != "cutter" and correct_pitch == "cutter":
+        false_neg_cutter += 1
+    if prediction != "cutter" and correct_pitch != "cutter":
+        true_neg_cutter += 1
+
+    if prediction == "splitter" and correct_pitch == "splitter":
+        true_pos_splitter += 1
+    if prediction == "splitter" and correct_pitch != "splitter":
+        false_pos_splitter += 1
+    if prediction != "splitter" and correct_pitch == "splitter":
+        false_neg_splitter += 1
+    if prediction != "splitter" and correct_pitch != "splitter":
+        true_neg_splitter += 1
+
+    if prediction == "knuckle" and correct_pitch == "knuckle":
+        true_pos_knuckle += 1
+    if prediction == "knuckle" and correct_pitch != "knuckle":
+        false_pos_knuckle += 1
+    if prediction != "knuckle" and correct_pitch == "knuckle":
+        false_neg_knuckle += 1
+    if prediction != "knuckle" and correct_pitch != "knuckle":
+        true_neg_knuckle += 1
+
+    if prediction == "2-seam fastball" and correct_pitch == "2-seam fastball":
+        true_pos_twoseam += 1
+    if prediction == "2-seam fastball" and correct_pitch != "2-seam fastball":
+        false_pos_twoseam += 1
+    if prediction != "2-seam fastball" and correct_pitch == "2-seam fastball":
+        false_neg_twoseam += 1
+    if prediction != "2-seam fastball" and correct_pitch != "2-seam fastball":
+        true_neg_twoseam += 1
+
 
     if prediction == correct_pitch:
         correct_predictions += 1
     else:
         correct_predictions = correct_predictions
+        #plt.show()
 
     total_predictions += 1
 
-    print("Correct count: ", correct_predictions)
-    print("Total count: ", total_predictions)
+print("\n4-seam fastballs: \ntrue pos: ", true_pos_fourseam, " true neg: ", true_neg_fourseam)
+print("false pos: ", false_pos_fourseam, " false neg: ", false_neg_fourseam)
 
-    # plt.show()
+print("\nSliders: \ntrue pos: ", true_pos_slider, " true neg: ", true_neg_slider)
+print("false pos: ", false_pos_slider, " false neg: ", false_neg_slider)
+
+print("\nChangeups: \ntrue pos: ", true_pos_changeup, " true neg: ", true_neg_changeup)
+print("false pos: ", false_pos_changeup, " false neg: ", false_neg_changeup)
+
+print("\nCurves: \ntrue pos: ", true_pos_curve, " true neg: ", true_neg_curve)
+print("false pos: ", false_pos_curve, " false neg: ", false_neg_curve)
+
+print("\nSinkers: \ntrue pos: ", true_pos_sinker, " true neg: ", true_neg_sinker)
+print("false pos: ", false_pos_sinker, " false neg: ", false_neg_sinker)
+
+print("\nCutters: \ntrue pos: ", true_pos_cutter, " true neg: ", true_neg_cutter)
+print("false pos: ", false_pos_cutter, " false neg: ", false_neg_cutter)
+
+print("\nSplitters: \ntrue pos: ", true_pos_splitter, " true neg: ", true_neg_splitter)
+print("false pos: ", false_pos_splitter, " false neg: ", false_neg_splitter)
+
+print("\nKnuckles: \ntrue pos: ", true_pos_knuckle, " true neg: ", true_neg_knuckle)
+print("false pos: ", false_pos_knuckle, " false neg: ", false_neg_knuckle)
+
+print("\n2-seam fastballs: \ntrue pos: ", true_pos_twoseam, " true neg: ", true_neg_twoseam)
+print("false pos: ", false_pos_twoseam, " false neg", false_neg_twoseam)
 
 accuracy = (correct_predictions / total_predictions) * 100
+
+print("\nCorrect count: ", correct_predictions)
+print("Total count: ", total_predictions)
 
 print("Accuracy = ", accuracy)
 
 """
-Questions for Neil:
-how to best normalise this data
-bagging - is the data preprocessing included
-there are 797 different pitches... when it comes to these graphs what would be the best way 
-to attempt to visualise this data
+normalise the data
+
 """
