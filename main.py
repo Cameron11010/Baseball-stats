@@ -381,8 +381,3 @@ print("\nCorrect count: ", correct_predictions)
 print("Total count: ", total_predictions)
 
 print("Accuracy = ", accuracy)
-
-"""
-normalise the data
-
-"""
