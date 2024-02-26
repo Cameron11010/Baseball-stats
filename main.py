@@ -1,12 +1,10 @@
-import numpy as np
-import glob
-import matplotlib.pyplot as plt
-from collections import Counter
+import seaborn as sns
+from KNearestNeighbour import *
+from openpyxl import load_workbook, Workbook
 
-from openpyxl import load_workbook
+dataset = load_workbook(filename="//Users/cam/Documents/Python-projects/stats.xlsx")
 
-dataset = load_workbook(filename="//Users/cam/Documents/Python-projects/stats-trial.xlsx")
-
+file_path = "//Users/cam/Documents/Python-projects/stats_norm.xlsx"
 
 train = dataset['Train']
 
@@ -15,6 +13,114 @@ test = dataset['Test']
 headings = [train.cell(row=1, column=i).value for i in range(1, train.max_column + 1)]
 
 test_headings = [test.cell(row=1, column=i).value for i in range(1, test.max_column + 1)]
+
+
+def sheet_exists(file_path, sheet_name):
+    try:
+        workbook = load_workbook(filename=file_path)
+        return sheet_name in workbook.sheetnames
+    except FileNotFoundError:
+        return False
+
+
+def copy_sheet(source_sheet_name, target_sheet_name, target_file_path):
+    try:
+        # Load the existing workbook
+        target_workbook = load_workbook(filename=target_file_path)
+    except FileNotFoundError:
+        # If the file doesn't exist, create a new workbook
+        target_workbook = Workbook()
+
+    # Create the target sheet
+    if target_sheet_name in target_workbook.sheetnames:
+        # If the sheet already exists, remove it
+        target_workbook.remove(target_workbook[target_sheet_name])
+    target_sheet = target_workbook.create_sheet(title=target_sheet_name)
+
+    # Load the source sheet
+    source_sheet = dataset[source_sheet_name]
+
+    # Copy contents from source to target sheet
+    for row in source_sheet.iter_rows(values_only=True):
+        target_sheet.append(row)
+
+    # Save the workbook
+    target_workbook.save(filename=target_file_path)
+
+
+def normalise(sheet):
+    data = []
+    for row in sheet.iter_rows(min_row=2, values_only=True):  # Assuming the first row contains headers
+        if not all(val is None for val in row):  # Skip over rows with all null values
+            data.append(list(row))
+
+    # Specify columns for normalization
+    columns_to_normalize = [(7, 12), (14, 19), (21, 26), (28, 33), (35, 40), (42, 47), (49, 54), (56, 61), (63, 68)]
+
+    # Apply min-max normalization to specified columns
+    for start, end in columns_to_normalize:
+        for row_data in data:
+            col_values = [val for val in row_data[start - 1:end] if val is not None]  # Exclude null values
+            if col_values:  # Skip over if all values are null
+                min_val = min(col_values)
+                max_val = max(col_values)
+                for i in range(start - 1, end):
+                    if row_data[i] is not None:  # Skip over null values
+                        row_data[i] = (row_data[i] - min_val) / (max_val - min_val)
+
+    return data
+
+
+sheet_name = "Norm_Train"
+if not sheet_exists(file_path, sheet_name):
+    source_sheet_name = "Train"
+    target_sheet_name = "Norm_Train"
+    copy_sheet(source_sheet_name, target_sheet_name, file_path)
+norm_workbook = load_workbook(filename=file_path)
+norm_sheet = norm_workbook[sheet_name]
+norm_data = normalise(norm_sheet)
+
+for row_idx, row_data in enumerate(norm_data, start=2):
+    for col_idx, value in enumerate(row_data, start=1):
+        norm_sheet.cell(row=row_idx, column=col_idx, value=value)
+
+norm_workbook.save(filename=file_path)
+
+sheet_name = "Norm_Test"
+if not sheet_exists(file_path, sheet_name):
+    source_sheet_name = "Test"
+    target_sheet_name = "Norm_Test"
+    copy_sheet(source_sheet_name, target_sheet_name, file_path)
+norm_workbook = load_workbook(filename=file_path)
+norm_sheet = norm_workbook[sheet_name]
+norm_data = normalise(norm_sheet)
+
+for row_idx, row_data in enumerate(norm_data, start=2):
+    for col_idx, value in enumerate(row_data, start=1):
+        norm_sheet.cell(row=row_idx, column=col_idx, value=value)
+
+norm_workbook.save(filename=file_path)
+
+sheet_name = "Norm_Validation"
+if not sheet_exists(file_path, sheet_name):
+    source_sheet_name = "Validation"
+    target_sheet_name = "Norm_Validation"
+    copy_sheet(source_sheet_name, target_sheet_name, file_path)
+norm_workbook = load_workbook(filename=file_path)
+norm_sheet = norm_workbook[sheet_name]
+norm_data = normalise(norm_sheet)
+
+for row_idx, row_data in enumerate(norm_data, start=2):
+    for col_idx, value in enumerate(row_data, start=1):
+        norm_sheet.cell(row=row_idx, column=col_idx, value=value)
+
+norm_workbook.save(filename=file_path)
+
+norm_dataset = load_workbook(filename="//Users/cam/Documents/Python-projects/stats_norm.xlsx")
+
+train = norm_dataset['Norm_Train']
+test = norm_dataset['Norm_Test']
+validation = norm_dataset['Norm_Validation']
 
 pitch_ranges = {
     "fseam": ([7, 12]),
@@ -41,7 +147,6 @@ for pitch, pitch_range in pitch_ranges.items():
         if row_data:  # Only append non-empty rows
             results[pitch].append(row_data)
 
-
 fseam = results["fseam"]
 slider = results["slider"]
 changeup = results["changeup"]
@@ -64,93 +169,7 @@ points = {'4-seam fastball': fseam,
           }
 
 
-color_map = {
-    '4-seam fastball': '#de2a33',
-    'sinker': '#ffff33',
-    'cutter': '#e8208e',
-    '2-seam fastball': '#ffad00',
-    'splitter': '#f3ffe3',
-    'changeup': '#008080',
-    'slider': '#86d8f7',
-    'curve': '#b19cd9',
-    'knuckle': '#98FF98'
-}
-
-
-#Calculating the nearest neighbour as long as there data has 6 features
-def euclidean_distance(p, q):
-    if len(p) != len(q):
-        raise ValueError("Both points must have the same number of features. P length:", len(p), "Q length: ", len(q))
-    else:
-        return np.sqrt(np.sum((np.array(p) - np.array(q)) ** 2))
-
-
-class KNearestNeighbours:
-    def __init__(self, k=15):
-        self.k = k
-        self.points = None
-
-    def fit(self, points):
-        self.points = points
-
-    def predict(self, new_point, unknown_pitch_number):
-        distances = []
-        k = self.k
-        for category, point_list in self.points.items():
-            for point in point_list:
-                try:
-                    distance = euclidean_distance(point, new_point)
-                    distances.append([distance, category, point])
-                except ValueError as e:
-                    print(f"Error: {e}")
-                    print(f"Category: {category}")
-                    print(f"Point: {point}")
-                    print(f"New Point: {new_point}")
-        categories = [category[1] for category in sorted(distances)[:self.k]]
-        result = Counter(categories).most_common(1)[0][0]
-
-        distances.sort()
-        for distance, category, neighbour in distances[:k]:
-            print(f"Distance: {distance}, Category: {category}, Point: {neighbour}")
-            nearest_neighbours = [neighbour for _, category, neighbour in distances[:k]]
-
-        # VISUALISATION
-        ax = plt.figure().add_subplot(111, projection='3d')
-        ax.grid(True, color="#323232")
-        ax.set_facecolor("black")
-        ax.figure.set_facecolor("#121212")
-        ax.tick_params(axis="x", colors="white")
-        ax.tick_params(axis="y", colors="white")
-        ax.tick_params(axis="z", colors="white")
-
-        ax.scatter(new_point[0], new_point[1], new_point[4], color=color_map.get(result), marker="*", s=500,
-                   zorder=150)
-
-        for distance, category, neighbour in distances[:k]:
-            ax.scatter(neighbour[0], neighbour[1], neighbour[4], color=color_map.get(category), marker="o", s=100,
-                       zorder=100)
-
-            ax.plot([new_point[0], neighbour[0]], [new_point[1], neighbour[1]], zs=[new_point[4], neighbour[4]],
-                    color='red', linestyle="--", linewidth=1)
-
-        ax.set_xlabel('Velocity', color='white')
-        ax.set_ylabel('Spinrate', color='white')
-        ax.set_zlabel('Break', color='white')
-        plt.title(('KNN Nearest Neighbours Pitch Type Results', f"Unknown Pitch {unknown_pitch_number}"), color='white')
-        for category, color in color_map.items():
-            ax.scatter([], [], [], c=color, label=category)
-
-        ax.legend(fontsize=5, title='Categories', loc='upper right')
-
-        return result
-
-
-
-
-
 def pitch_classification(column_numbers):
-
-
     if column_numbers == [7, 8, 9, 10, 11, 12]:
         return "4-seam fastball"
     elif column_numbers == [14, 15, 16, 17, 18, 19]:
@@ -173,6 +192,19 @@ def pitch_classification(column_numbers):
         return "Unknown pitch type"
 
 
+def plot_confusion_matrix(tp, tn, fp, fn, title, labels=None):
+    confusion_matrix = np.array([[tp, fp], [fn, tn]])
+
+    if labels is None:
+        labels = ['Positive', 'Negative']
+
+    sns.heatmap(confusion_matrix, annot=True, cmap="Blues", fmt="d", xticklabels=labels, yticklabels=labels)
+    plt.xlabel('Predicted Labels')
+    plt.ylabel('True Labels')
+    plt.title(title)
+    plt.show()
+
+
 ranges = [(7, 12), (14, 19), (21, 26), (28, 33), (35, 40), (42, 47), (49, 54), (56, 61), (63, 68)]
 unknown_pitch = []
 
@@ -187,6 +219,12 @@ for start, end in ranges:
         if column_values:
             unknown_pitch.extend(column_values)
 
+display = False
+ans = input("Would you like to see the 3D graphs?(y/n)")
+if ans == "y":
+    display = True
+print(display)
+input("______")
 clf = KNearestNeighbours()
 clf.fit(points)
 
@@ -253,7 +291,7 @@ for i in range(num_variables):
     guess_pitch_column_numbers = [tup[1] for tup in globals()[f"unknown_pitch {i + 1}"]]
 
     correct_pitch = pitch_classification(guess_pitch_column_numbers)
-    prediction = clf.predict(guess_pitch, i + 1)
+    prediction = clf.predict(guess_pitch, i + 1, display)
 
     print("Category prediction:", prediction)
     print("Correct pitch:", correct_pitch)
@@ -339,41 +377,54 @@ for i in range(num_variables):
     if prediction != "2-seam fastball" and correct_pitch != "2-seam fastball":
         true_neg_twoseam += 1
 
-
     if prediction == correct_pitch:
         correct_predictions += 1
     else:
         correct_predictions = correct_predictions
-        #plt.show()
+        plt.show()
 
     total_predictions += 1
 
 print("\n4-seam fastballs: \ntrue pos: ", true_pos_fourseam, " true neg: ", true_neg_fourseam)
 print("false pos: ", false_pos_fourseam, " false neg: ", false_neg_fourseam)
+plot_confusion_matrix(true_pos_fourseam, true_neg_fourseam, false_pos_fourseam, false_neg_fourseam,
+                      "4-seam confusion matrix")
 
 print("\nSliders: \ntrue pos: ", true_pos_slider, " true neg: ", true_neg_slider)
 print("false pos: ", false_pos_slider, " false neg: ", false_neg_slider)
+plot_confusion_matrix(true_pos_slider, true_neg_slider, false_pos_slider, false_neg_slider, "slider confusion matrix")
 
 print("\nChangeups: \ntrue pos: ", true_pos_changeup, " true neg: ", true_neg_changeup)
 print("false pos: ", false_pos_changeup, " false neg: ", false_neg_changeup)
+plot_confusion_matrix(true_pos_changeup, true_neg_changeup, false_pos_changeup, false_neg_changeup,
+                      "changeup confusion matrix")
 
 print("\nCurves: \ntrue pos: ", true_pos_curve, " true neg: ", true_neg_curve)
 print("false pos: ", false_pos_curve, " false neg: ", false_neg_curve)
+plot_confusion_matrix(true_pos_curve, true_neg_curve, false_pos_curve, false_neg_curve, "curve confusion matrix")
 
 print("\nSinkers: \ntrue pos: ", true_pos_sinker, " true neg: ", true_neg_sinker)
 print("false pos: ", false_pos_sinker, " false neg: ", false_neg_sinker)
+plot_confusion_matrix(true_pos_sinker, true_neg_sinker, false_pos_sinker, false_neg_sinker, "sinker confusion matrix")
 
 print("\nCutters: \ntrue pos: ", true_pos_cutter, " true neg: ", true_neg_cutter)
 print("false pos: ", false_pos_cutter, " false neg: ", false_neg_cutter)
+plot_confusion_matrix(true_pos_cutter, true_neg_cutter, false_pos_cutter, false_neg_cutter, "cutter confusion matrix")
 
 print("\nSplitters: \ntrue pos: ", true_pos_splitter, " true neg: ", true_neg_splitter)
 print("false pos: ", false_pos_splitter, " false neg: ", false_neg_splitter)
+plot_confusion_matrix(true_pos_splitter, true_neg_splitter, false_pos_splitter, false_neg_splitter,
+                      "splitter confusion matrix")
 
 print("\nKnuckles: \ntrue pos: ", true_pos_knuckle, " true neg: ", true_neg_knuckle)
 print("false pos: ", false_pos_knuckle, " false neg: ", false_neg_knuckle)
+plot_confusion_matrix(true_pos_knuckle, true_neg_knuckle, false_pos_knuckle, false_neg_knuckle,
+                      "knuckle confusion matrix")
 
 print("\n2-seam fastballs: \ntrue pos: ", true_pos_twoseam, " true neg: ", true_neg_twoseam)
 print("false pos: ", false_pos_twoseam, " false neg", false_neg_twoseam)
+plot_confusion_matrix(true_pos_twoseam, true_neg_twoseam, false_pos_twoseam, false_neg_twoseam,
+                      "2-seam confusion matrix")
 
 accuracy = (correct_predictions / total_predictions) * 100
 
@@ -381,3 +432,7 @@ print("\nCorrect count: ", correct_predictions)
 print("Total count: ", total_predictions)
 
 print("Accuracy = ", accuracy)
+
+
+valid_test = input("Would you like to run the validation test?(y/n")
+if valid_test == 'y':
