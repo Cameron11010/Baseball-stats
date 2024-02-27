@@ -15,4 +15,3 @@ def normalise_log_trans(sheet):
                     row_data[i] = np.log(row_data[i])
 
     return data
-
