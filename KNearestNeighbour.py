@@ -25,7 +25,7 @@ color_map = {
 
 
 class KNearestNeighbours:
-    def __init__(self, k=15):
+    def __init__(self, k=12):
         self.k = k
         self.points = None
 
